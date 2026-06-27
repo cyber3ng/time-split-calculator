@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Split Calculator</title>
+<style>
+  :root {
+    --ink: #37352f;
+    --muted: #9b9a97;
+    --line: #e9e9e7;
+    --field: #f7f7f5;
+    --accent: #2383e2;
+    --accent-soft: rgba(35, 131, 226, 0.10);
+    --accent-two: #b6b6b3;
+    --bad: #eb5757;
+    --bad-soft: rgba(235, 87, 87, 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 380px; margin: 0 auto; padding: 20px 18px; }
+
+  .row { display: flex; gap: 12px; margin-bottom: 4px; }
+  .col { flex: 1; }
+  .col.hours-col { flex: 0 0 96px; }
+
+  label {
+    display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+  }
+  input {
+    width: 100%; border: 1px solid var(--line); background: var(--field);
+    border-radius: 7px; padding: 10px 11px; font-size: 15px; font-weight: 500;
+    font-variant-numeric: tabular-nums; color: var(--ink); outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  }
+  input::placeholder { color: var(--muted); font-weight: 400; }
+  input:hover { border-color: #dcdcd9; }
+  input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+    background: #fff;
+  }
+
+  .result {
+    margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px;
+    min-height: 92px;
+  }
+
+  /* proportional split bar */
+  .bar {
+    display: flex; height: 8px; border-radius: 5px; overflow: hidden;
+    background: var(--field); margin-bottom: 16px;
+  }
+  .bar > span { display: block; height: 100%; transition: flex-basis 0.18s ease; }
+  .bar .seg-one { background: var(--accent); }
+  .bar .seg-two { background: var(--accent-two); }
+
+  .line {
+    display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    flex: 0 0 auto;
+  }
+  .dot.two { background: var(--accent-two); }
+  .hrs { font-weight: 600; font-size: 15px; min-width: 56px; }
+  .span {
+    font-size: 15px; color: var(--ink); letter-spacing: 0.02em;
+    margin-left: auto; font-variant-numeric: tabular-nums;
+  }
+
+  .note {
+    border-radius: 7px; padding: 12px 13px; font-size: 13px; line-height: 1.45;
+  }
+  .note.hint { color: var(--muted); background: var(--field); }
+  .note.error { color: var(--bad); background: var(--bad-soft); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row">
+    <div class="col">
+      <label for="range">Range</label>
+      <input id="range" inputmode="numeric" placeholder="0900-1600" value="0900-1600" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="col hours-col">
+      <label for="hours">Hours</label>
+      <input id="hours" inputmode="decimal" placeholder="3" value="3" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+  <div class="result" id="result"></div>
+</div>
+<script>
+  const rangeEl = document.getElementById('range');
+  const hoursEl = document.getElementById('hours');
+  const out = document.getElementById('result');
+
+  function toHHMM(mins) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return String(h).padStart(2, '0') + String(m).padStart(2, '0');
+  }
+  function fmtHours(n) { return parseFloat(n.toFixed(4)).toString(); }
+
+  function compute() {
+    const r = rangeEl.value.trim();
+    const h = parseFloat(hoursEl.value);
+    const m = r.match(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/);
+    if (!m) { out.innerHTML = '<div class="note hint">Enter a range like 0900-1600.</div>'; return; }
+    if (isNaN(h)) { out.innerHTML = '<div class="note hint">Enter an hour amount.</div>'; return; }
+
+    const startM = (+m[1]) * 60 + (+m[2]);
+    const endM   = (+m[3]) * 60 + (+m[4]);
+    if (endM <= startM) { out.innerHTML = '<div class="note error">End time must be after start time.</div>'; return; }
+
+    const splitM = startM + h * 60;
+    const secondHours = (endM - splitM) / 60;
+    if (splitM <= startM || splitM >= endM) {
+      out.innerHTML = '<div class="note error">Hours must fit inside the range (0–' +
+        fmtHours((endM - startM) / 60) + ' h).</div>';
+      return;
+    }
+
+    const total = endM - startM;
+    const pct1 = (splitM - startM) / total * 100;
+    const pct2 = 100 - pct1;
+
+    out.innerHTML =
+      '<div class="bar">' +
+        '<span class="seg-one" style="flex:0 0 ' + pct1 + '%"></span>' +
+        '<span class="seg-two" style="flex:0 0 ' + pct2 + '%"></span>' +
+      '</div>' +
+      '<div class="line"><span class="dot"></span>' +
+        '<span class="hrs">' + fmtHours(h) + ' h</span>' +
+        '<span class="span">' + toHHMM(startM) + '–' + toHHMM(splitM) + '</span></div>' +
+      '<div class="line"><span class="dot two"></span>' +
+        '<span class="hrs">' + fmtHours(secondHours) + ' h</span>' +
+        '<span class="span">' + toHHMM(splitM) + '–' + toHHMM(endM) + '</span></div>';
+  }
+
+  rangeEl.addEventListener('input', compute);
+  hoursEl.addEventListener('input', compute);
+  compute();
+</script>
+</body>
+</html>
